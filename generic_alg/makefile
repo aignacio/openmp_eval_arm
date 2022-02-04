@@ -1,5 +1,7 @@
-CC			=		gcc
-CFLAGS	:=	-Wall -lm
+#CC			=		gcc
+CC_ARM	=		arm-linux-gnueabi-gcc
+CC			=		$(CC_ARM)
+CFLAGS	:=	-Wall -lm -fopenmp
 ODIR		:=	output
 _OBJ		+=	$(patsubst src/%,%,$(basename $(wildcard src/*.c)))
 OBJ			:=	$(patsubst %,$(ODIR)/%,$(_OBJ))
