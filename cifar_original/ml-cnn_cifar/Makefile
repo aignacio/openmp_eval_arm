@@ -20,14 +20,14 @@ DEF?=
 
 -include NN.makefile.include
 
-GNG_CC=g++-10
+GNG_CC=arm-linux-gnueabi-gcc
 SRCINC?=
 ASSDBG=
 INCOBJ=$(patsubst %.c,%$(MULT).$(CROSS).o,$(SRCINC))
 EXE=$(patsubst %.c,%.o,$(SRC))
 EXEPP=$(patsubst %.cpp,%.o,$(SRCPP))
 CFLAGS += -O3
-CFLAGS += -w -g 
+CFLAGS += -w -g
 #CFLAGS += -std=gnu99
 
 SRC+= \
