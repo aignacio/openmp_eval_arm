@@ -4,12 +4,11 @@
 # Date              : 05.02.2022
 # Last Modified Date: 06.02.2022
 
-#CC			=		gcc
-#_CC_ARM	=		arm-linux-gnueabi-gcc
-#_CC_ARM	=		arm-linux-gnueabi-gcc
-_CC			=		aarch64-linux-gnu-gcc
+#_CC			=		aarch64-linux-gnu-gcc
+_CC			=		arm-linux-gnueabi-gcc
 CC			=		docker run --rm -v "$(abspath .)":/src -w /src arm_gcc_aignacio $(_CC)
-CFLAGS	:=	-Wall -lm -fopenmp -DTHREADS=10
+THREADS	=		10
+CFLAGS	:=	-Wall -lm -fopenmp -I. -DTHREADS=$(THREADS)
 ODIR		:=	output
 _OBJ		+=	$(patsubst src/%,%,$(basename $(wildcard src/*.c)))
 OBJ			:=	$(patsubst %,$(ODIR)/%,$(_OBJ))
@@ -28,7 +27,7 @@ build:
 
 all: $(OBJ)
 	@echo $(OBJ)
-	@echo "Build done!"
+	@echo "Build done! - Number of threads: $(THREADS)"
 
 $(ODIR)/%:	src/%.c
 	@echo "Building $@"

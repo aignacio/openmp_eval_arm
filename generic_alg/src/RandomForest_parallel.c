@@ -387,9 +387,12 @@ int main(void)
   //  int maxMaxNodesTree = 10;
   int i;
 
-  printf("\n[Serial] RUN:\n");
+  printf("\n[Parallel] RUN:\n");
   START_TIME_EVAL(begin);
+
+  //#pragma omp parallel for shared(totalRows) firstprivate(maxNodesTree) num_threads(THREADS)
   for (i=0; i<n_estimators; i++) {
+    //  #pragma omp critical (totalRows)
  	  totalRows = maxNodesTree[i] + totalRows;
   }
   // allocate space in memory to load all csvs
@@ -408,26 +411,35 @@ int main(void)
   char send_string[300];
 
 
+  float result[75];
+  #pragma omp parallel firstprivate(rf,test_data) num_threads(THREADS)
   for(int j = 0 ; j < 75 ; j++)
   {
-    printf("%d ->", j);
+    /*printf("%d ->", j);*/
 
-    for(i=0; i < 4; i++){
-      printf("%f, ", test_data[j][i]);
-    }
+    /*for(i=0; i < 4; i++){*/
+      /*printf("%f, ", test_data[j][i]);*/
+    /*}*/
 
-    printf(" -> ");
-
+    /*printf(" -> ");*/
+    #pragma omp for
   	for(i=0; i < n_estimators; i++)
   	{
   		predictions[i] = predict(rf[i], test_data[j]);
-  		printf("%.5f,", predictions[i]);
+          /*printf("%.5f,", predictions[i]);*/
   	}
-    printf("-> %f \n", majority_vote_predict(predictions, n_estimators));
+    #pragma omp barrier
+    result[j] = majority_vote_predict(predictions, n_estimators);
+    /*printf("-> %f \n", majority_vote_predict(predictions, n_estimators));*/
   }
   STOP_TIME_EVAL(begin, end);
-  Elapsed_Time_Serial = Elapsed_Time;
-  printf("\n[Serial] Total execution time: %.3f ms", Elapsed_Time_Serial);
+  Elapsed_Time_Parallel = Elapsed_Time;
+
+
+  for(int j = 0 ; j < 75 ; j++)
+    printf("\n%d -> %f",j,result[j]);
+
+  printf("\n[Parallel] Total execution time: %.3f ms", Elapsed_Time_Parallel);
   printf("\n");
 }
 

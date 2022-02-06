@@ -57,15 +57,8 @@
 #include <stdio.h>
 //[aignacio] Added for profiling the code
 #include <sys/time.h>
-
-#define START_TIME_EVAL(x)  gettimeofday(&x, NULL)
-#define STOP_TIME_EVAL(x,y) gettimeofday(&y, NULL);                         \
-                            Elapsed_Time = (y.tv_sec - x.tv_sec)*1000.0;    \
-                            Elapsed_Time += (y.tv_usec - x.tv_usec)/1000.0
-
-
-struct timeval begin, end;
-double Elapsed_Time;
+#include <omp.h>
+#include "common.h"
 
 typedef struct linked_list linked_list_t;
 
@@ -93,6 +86,8 @@ void neural_net_add_layer(neural_net_t *neural_net);
 void neural_net_add_neuron(neural_net_t *neural_net, double *weights, int n_weights, double bias);
 
 double * neural_net_run(neural_net_t* neural_net, double *data, int len);
+
+double * neural_net_run_parallel(neural_net_t* neural_net, double *data, int len);
 
 
 /* USER CODE END */
@@ -332,20 +327,33 @@ int main(void)
 
     double *result;
 
+    printf("\n[Serial] RUN:\n");
     START_TIME_EVAL(begin);
     for(i = 0 ; i < 150 ; i++){
         result = neural_net_run(neural_net, test_data[i] + 1, 4);
         printf("%lf %lf %lf -> %d\n", *result, result[1], result[2], classify(result, 3));
-
         free(result);
     }
-
     STOP_TIME_EVAL(begin, end);
-    printf("\nTotal execution time: %.3f ms\n", Elapsed_Time);
+    Elapsed_Time_Serial = Elapsed_Time;
 
+    printf("\n[Parallel] RUN:\n");
+    START_TIME_EVAL(begin);
+    #pragma omp parallel for private(result) firstprivate(neural_net,test_data) num_threads(THREADS)
+    for(i=0; i<150; i++){
+        /*result = (double *)malloc(sizeof(double)*4);*/
+        result = neural_net_run_parallel(neural_net, test_data[i] + 1, 4);
+        printf("[i=%d] %lf %lf %lf -> %d\n",i, *result, result[1], result[2], classify(result, 3));
+        /*free(result);*/
+    }
+    STOP_TIME_EVAL(begin, end);
+    Elapsed_Time_Parallel = Elapsed_Time;
+
+    printf("\n[Serial] Total execution time: %.3f ms", Elapsed_Time_Serial);
+    printf("\n[Parallel] Total execution time: %.3f ms", Elapsed_Time_Parallel);
+    printf("\n");
     return 0;
 }
-
 
 struct neural_net{
 
@@ -420,6 +428,69 @@ double _neuron_evaluate(neuron_t* neuron, double *data){
     return _activation_func(result + neuron->bias);
 }
 
+double _neuron_evaluate_parallel(neuron_t* neuron, double *data){
+
+    int i;
+    double result;
+
+    result = 0;
+    // [aignacio] We can launch the parallelization here with the following clauses
+    // as firstprivate for the neuron/data once they're not zeroed and shared for the
+    // common variable result, also adding the critical section for it of course.
+    //
+    // private = Specifies that each thread should have its own instance of a variable.
+    // firstprivate	= Specifies that each thread should have its own instance of a variable,
+    //                  and that the variable should be initialized with the value of the variable,
+    //                  because it exists before the parallel construct.
+    #pragma omp parallel for firstprivate(neuron,data) shared(result) num_threads(THREADS)
+    for(i=0; i<neuron->n_weights; i++){
+        #pragma omp critical (result)
+        result += neuron->weights[i] * data[i];
+    }
+    return _activation_func(result + neuron->bias);
+}
+
+double * neural_net_run_parallel(neural_net_t* neural_net, double *data, int len){
+
+    layer_t *layer;
+    neuron_t *neuron;
+    int i;
+    double result;
+    double *prev_outputs = (double *)malloc(sizeof(double)*len);
+    double *next_outputs = NULL;
+
+    linked_list_start_iterator(neural_net->layers);
+
+
+    memcpy(prev_outputs, data, sizeof(double)*len);
+
+    // [aignacio] This while loop doesn't worth to run in parallel due to the
+    // fact that the layer 1 relies on the outputs of layer 0, thus adding
+    // the openmp will only lead to overhead of thread mgmt like copying
+    // private data to the TCBs
+    while(layer = linked_list_get_next(neural_net->layers)){
+
+        linked_list_start_iterator(layer->neurons);
+        result = 0;
+        next_outputs = malloc(sizeof(double) * (linked_list_length(layer->neurons)));
+        i = 0;
+
+        // [aignacio] Same here...
+        while(neuron = linked_list_get_next(layer->neurons)){
+            // [aignacio] Here it might worth to parallelize the run (within _neuron_evaluate)
+            next_outputs[i] = _neuron_evaluate_parallel(neuron, prev_outputs);
+            i++;
+
+        }
+
+        free(prev_outputs);
+        prev_outputs = next_outputs;
+
+
+    }
+
+    return prev_outputs;
+}
 
 double * neural_net_run(neural_net_t* neural_net, double *data, int len){
 
