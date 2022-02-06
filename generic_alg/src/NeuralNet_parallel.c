@@ -435,6 +435,9 @@ double * neural_net_run(neural_net_t* neural_net, double *data, int len){
 
     memcpy(prev_outputs, data, sizeof(double)*len);
 
+
+    // [aignacio] This while loop doesn't worth to run in parallel due to the
+    // fact that we have layer 1 relies on the outputs of layer 0
     while(layer = linked_list_get_next(neural_net->layers)){
 
         linked_list_start_iterator(layer->neurons);
