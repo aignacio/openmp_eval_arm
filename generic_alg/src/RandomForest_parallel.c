@@ -422,7 +422,7 @@ int main(void)
     /*}*/
 
     /*printf(" -> ");*/
-    #pragma omp for
+    #pragma omp parallel for
   	for(i=0; i < n_estimators; i++)
   	{
   		predictions[i] = predict(rf[i], test_data[j]);

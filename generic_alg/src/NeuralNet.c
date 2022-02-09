@@ -60,8 +60,8 @@
 #include <omp.h>
 #include "common.h"
 
-typedef struct linked_list linked_list_t;
 
+typedef struct linked_list linked_list_t;
 
 linked_list_t* new_linked_list();
 
@@ -326,31 +326,43 @@ int main(void)
   };
 
     double *result;
+    double vresult_serial[150][3];
+    double vresult_parallel[150][3];
 
     printf("\n[Serial] RUN:\n");
     START_TIME_EVAL(begin);
     for(i = 0 ; i < 150 ; i++){
         result = neural_net_run(neural_net, test_data[i] + 1, 4);
         printf("%lf %lf %lf -> %d\n", *result, result[1], result[2], classify(result, 3));
+        for (int j=0;j<3;j++)
+            vresult_serial[i][j] = *(result+j);
         free(result);
     }
     STOP_TIME_EVAL(begin, end);
     Elapsed_Time_Serial = Elapsed_Time;
 
+
+
     printf("\n[Parallel] RUN:\n");
+    omp_set_num_threads(THREADS);
     START_TIME_EVAL(begin);
+
     #pragma omp parallel for private(result) firstprivate(neural_net,test_data) num_threads(THREADS)
-    for(i=0; i<150; i++){
-        /*result = (double *)malloc(sizeof(double)*4);*/
+    for(i = 0 ; i < 150 ; i++){
         result = neural_net_run_parallel(neural_net, test_data[i] + 1, 4);
-        printf("[i=%d] %lf %lf %lf -> %d\n",i, *result, result[1], result[2], classify(result, 3));
-        /*free(result);*/
+        printf("[%d] %lf %lf %lf -> %d\n", i, *result, result[1], result[2], classify(result, 3));
+        for (int j=0;j<3;j++)
+            vresult_parallel[i][j] = *(result+j);
+        free(result);
     }
     STOP_TIME_EVAL(begin, end);
     Elapsed_Time_Parallel = Elapsed_Time;
 
+    // Scoreboard
+    float score = compare_result(vresult_serial, vresult_parallel, 150, 3);
     printf("\n[Serial] Total execution time: %.3f ms", Elapsed_Time_Serial);
     printf("\n[Parallel] Total execution time: %.3f ms", Elapsed_Time_Parallel);
+    printf("\n[Score] %.2f%% ---> %.2f%% of parallel results are wrong!", score, 100.0-score);
     printf("\n");
     return 0;
 }
@@ -442,9 +454,10 @@ double _neuron_evaluate_parallel(neuron_t* neuron, double *data){
     // firstprivate	= Specifies that each thread should have its own instance of a variable,
     //                  and that the variable should be initialized with the value of the variable,
     //                  because it exists before the parallel construct.
-    #pragma omp parallel for firstprivate(neuron,data) shared(result) num_threads(THREADS)
+    /*#pragma omp parallel for firstprivate(neuron,data) //reduction(+:result)*/
+    /*#pragma omp parallel for firstprivate(neuron,data) //reduction(+:result)*/
     for(i=0; i<neuron->n_weights; i++){
-        #pragma omp critical (result)
+        /*#pragma omp critical (result)*/
         result += neuron->weights[i] * data[i];
     }
     return _activation_func(result + neuron->bias);
@@ -661,3 +674,5 @@ void *linked_list_get_last(linked_list_t *list){
     return list->tail->data;
 
 }
+
+
