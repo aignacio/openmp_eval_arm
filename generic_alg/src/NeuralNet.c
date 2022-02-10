@@ -56,8 +56,6 @@
 #include <math.h>
 #include <stdio.h>
 //[aignacio] Added for profiling the code
-#include <sys/time.h>
-#include <omp.h>
 #include "common.h"
 
 

@@ -24,9 +24,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
-//[aignacio] Added for profiling the code
-#include <sys/time.h>
-#include <omp.h>
+
 #include "common.h"
 //
 // node in decision tree
@@ -370,8 +368,28 @@ float motherFucking3dVec[10][10][6] = {
   * @brief  The application entry point.
   * @retval int
   */
+float results_serial[75];   //= (float *)malloc(sizeof(float)*75);
+float results_parallel[75]; //= (float *)malloc(sizeof(float)*75);
+
 int main(void)
 {
+    serial_run();
+    parallel_run();
+    /*float score = compare_result_float(results_serial, results_parallel, 75, 1);*/
+    float score = 0.0;
+    for (int i=0; i<75; i++){
+        printf("\n[%.2f] === [%.2f]",results_serial[i],results_parallel[i]);
+        if (results_serial[i] == results_parallel[i])
+            score++;
+    }
+    printf("\n[Serial] Total execution time: %.3f ms", Elapsed_Time_Serial);
+    printf("\n[Parallel] Total execution time: %.3f ms", Elapsed_Time_Parallel);
+    printf("\n[Score] %.2f%% ---> %.2f%% of parallel results are wrong!", 100*(score/75),100-(100*(score/75)));
+    printf("\n");
+    return 0;
+}
+
+void serial_run(){
   int rows = 151-1;
   int cols = 6;
 
@@ -407,7 +425,6 @@ int main(void)
   float predictions[10];
   char send_string[300];
 
-
   for(int j = 0 ; j < 75 ; j++)
   {
     printf("%d ->", j);
@@ -424,6 +441,7 @@ int main(void)
   		printf("%.5f,", predictions[i]);
   	}
     printf("-> %f \n", majority_vote_predict(predictions, n_estimators));
+    results_serial[j] = majority_vote_predict(predictions, n_estimators);
   }
   STOP_TIME_EVAL(begin, end);
   Elapsed_Time_Serial = Elapsed_Time;
@@ -431,6 +449,70 @@ int main(void)
   printf("\n");
 }
 
+void parallel_run(){
+  int rows = 151-1;
+  int cols = 6;
+
+  // dimensions of csv file
+  int n_estimators = 10; // n_estimators = number of trees in the foreset
+  //int rowsTree = 8-1;
+  int colsTree = 6;
+  // float* maxNodesTree = malloc(n_estimators * sizeof(float));
+  float maxNodesTree[10] = {3, 5, 5, 10, 4, 8, 7, 5, 7, 7};
+
+  // total number of rows
+  int totalRows = 0;
+  //  int maxMaxNodesTree = 10;
+  int i;
+
+  printf("\n[Parallel] RUN:\n");
+  START_TIME_EVAL(begin);
+
+  omp_set_num_threads(THREADS);
+  #pragma omp parallel for firstprivate(maxNodesTree) reduction(+:totalRows)
+  for (i=0; i<n_estimators; i++) {
+ 	  totalRows = maxNodesTree[i] + totalRows;
+  }
+  // allocate space in memory to load all csvs
+  float*** treeRF = create_array_3d(maxNodesTree,colsTree,n_estimators,totalRows);
+  int k;
+  // read data into memory
+  for(k = 0; k < n_estimators; k++){
+ 	 read_data_3d(motherFucking3dVec, treeRF, maxNodesTree, colsTree, n_estimators, k);
+  }
+
+  struct Node** rf = fit_model(motherFucking3dVec, n_estimators);
+
+  double accuracy;
+  float sample[6];
+  float predictions[10];
+  char send_string[300];
+
+  #pragma omp parallel for firstprivate(test_data, rf, n_estimators) private(predictions)
+  for(int j = 0 ; j < 75 ; j++)
+  {
+    printf("%d ->", j);
+
+    /*#pragma omp parallel for*/
+    for(i=0; i < 4; i++){
+      printf("%f, ", test_data[j][i]);
+    }
+
+    printf(" -> ");
+
+    /*#pragma omp parallel for*/
+  	for(i=0; i < n_estimators; i++)
+  	{
+  		predictions[i] = predict(rf[i], test_data[j]);
+  		printf("%.5f,", predictions[i]);
+  	}
+    printf("-> %f \n", majority_vote_predict(predictions, n_estimators));
+    results_parallel[j] = majority_vote_predict(predictions, n_estimators);
+  }
+  STOP_TIME_EVAL(begin, end);
+  Elapsed_Time_Parallel = Elapsed_Time;
+  printf("\n");
+}
 //
 // Dataset Cross Validation for preliminary evaluation of the random forest on the available test data
 //
