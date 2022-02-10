@@ -344,7 +344,7 @@ int main(void)
     omp_set_num_threads(THREADS);
     START_TIME_EVAL(begin);
 
-    #pragma omp parallel for private(result) schedule(static) firstprivate(neural_net,test_data)
+    #pragma omp parallel for private(result) shared(vresult_parallel) schedule(static) firstprivate(neural_net,test_data)
     for(i = 0 ; i < 150 ; i++){
         result = (double *)malloc(sizeof(double)*4);
         result = neural_net_run_parallel(neural_net, test_data[i] + 1, 4);

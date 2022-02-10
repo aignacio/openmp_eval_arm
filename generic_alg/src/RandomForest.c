@@ -488,7 +488,7 @@ void parallel_run(){
   float predictions[10];
   char send_string[300];
 
-  #pragma omp parallel for firstprivate(test_data, rf, n_estimators) private(predictions)
+  #pragma omp parallel for firstprivate(test_data, rf, n_estimators) private(predictions, i) shared(results_parallel)
   for(int j = 0 ; j < 75 ; j++)
   {
     printf("%d ->", j);
