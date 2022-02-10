@@ -58,6 +58,21 @@ float versi_virg_alphas[ 16 ] = {
 };
 float versi_virg_bias =  10.54 ;
 
+float svm_compute_parallel(float sample[], int n_svs, float svs[][2], float alphas[], float bias){
+
+	int i = 0;
+	float acc_sum = 0;
+
+    #pragma omp parallel for firstprivate(sample, svs, alphas) reduction(+:acc_sum)
+	for(i = 0 ; i < n_svs ; i++){
+
+		acc_sum += ((sample[0] * svs[i][0] + sample[1]*svs[i][1])*alphas[i]);
+
+	}
+
+	return acc_sum + bias;
+}
+
 float svm_compute(float sample[], int n_svs, float svs[][2], float alphas[], float bias){
 
 	int i = 0;
@@ -71,7 +86,6 @@ float svm_compute(float sample[], int n_svs, float svs[][2], float alphas[], flo
 
 	return acc_sum + bias;
 }
-
 
 float samples[150][2] = {
         { 1.4 , 0.2 },
@@ -304,9 +318,9 @@ int main(){
                                                     versi_virg_svs, versi_virg_alphas, versi_virg_bias)
     for(int i = 0 ; i < 150 ; i++){
 
-        results[0] = svm_compute(samples[i], 2, set_vers_svs, set_vers_alphas, set_vers_bias);
-        results[1] = svm_compute(samples[i], 2, set_virg_svs, set_virg_alphas, set_virg_bias);
-        results[2] = svm_compute(samples[i], 16, versi_virg_svs, versi_virg_alphas, versi_virg_bias);
+        results[0] = svm_compute_parallel(samples[i], 2, set_vers_svs, set_vers_alphas, set_vers_bias);
+        results[1] = svm_compute_parallel(samples[i], 2, set_virg_svs, set_virg_alphas, set_virg_bias);
+        results[2] = svm_compute_parallel(samples[i], 16, versi_virg_svs, versi_virg_alphas, versi_virg_bias);
 
         printf("%3d: ", i);
 		printf("%5f, ", results[0]);
