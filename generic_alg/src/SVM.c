@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include "common.h"
 
 float set_vers_svs[ 16 ][2] = {
         { 1.9 ,  0.2 },
@@ -58,7 +59,7 @@ float versi_virg_alphas[ 16 ] = {
 float versi_virg_bias =  10.54 ;
 
 float svm_compute(float sample[], int n_svs, float svs[][2], float alphas[], float bias){
-	
+
 	int i = 0;
 	float acc_sum = 0;
 
@@ -272,8 +273,13 @@ final_classes_t classify(float vals[]){
 int main(){
 
     float results[3];
+    int vresult_serial[150];
+    int vresult_parallel[150];
+
+    printf("\n[Serial] RUN:\n");
+    START_TIME_EVAL(begin);
 	for(int i = 0 ; i < 150 ; i++){
-		
+
         results[0] = svm_compute(samples[i], 2, set_vers_svs, set_vers_alphas, set_vers_bias);
         results[1] = svm_compute(samples[i], 2, set_virg_svs, set_virg_alphas, set_virg_bias);
         results[2] = svm_compute(samples[i], 16, versi_virg_svs, versi_virg_alphas, versi_virg_bias);
@@ -283,8 +289,45 @@ int main(){
 		printf("%5f, ", results[1]);
 		printf("%5f\n", results[2]);
         printf("Final class -> %d\n", classify(results));
-	
+        vresult_serial[i] = classify(results);
 	}
-	
+    STOP_TIME_EVAL(begin, end);
+    Elapsed_Time_Serial = Elapsed_Time;
 
+
+    printf("\n[Parallel] RUN:\n");
+    omp_set_num_threads(THREADS);
+    START_TIME_EVAL(begin);
+    #pragma omp parallel for shared(vresult_parallel) private(results) firstprivate(samples,            \
+                                                    set_vers_svs,   set_vers_alphas,   set_vers_bias,   \
+                                                    set_virg_svs,   set_virg_alphas,   set_virg_bias,   \
+                                                    versi_virg_svs, versi_virg_alphas, versi_virg_bias)
+    for(int i = 0 ; i < 150 ; i++){
+
+        results[0] = svm_compute(samples[i], 2, set_vers_svs, set_vers_alphas, set_vers_bias);
+        results[1] = svm_compute(samples[i], 2, set_virg_svs, set_virg_alphas, set_virg_bias);
+        results[2] = svm_compute(samples[i], 16, versi_virg_svs, versi_virg_alphas, versi_virg_bias);
+
+        printf("%3d: ", i);
+		printf("%5f, ", results[0]);
+		printf("%5f, ", results[1]);
+		printf("%5f\n", results[2]);
+        printf("Final class -> %d\n", classify(results));
+        vresult_parallel[i] = classify(results);
+	}
+    STOP_TIME_EVAL(begin, end);
+    Elapsed_Time_Parallel = Elapsed_Time;
+
+    float score = 0.0;
+    for (int i=0; i<150; i++){
+        printf("\n[%d] === [%d]",vresult_serial[i], vresult_parallel[i]);
+        if (vresult_serial[i] == vresult_parallel[i])
+            score++;
+    }
+
+    printf("\n[Serial] Total execution time: %.3f ms", Elapsed_Time_Serial);
+    printf("\n[Parallel] Total execution time: %.3f ms", Elapsed_Time_Parallel);
+    printf("\n[Score] %.2f%% ---> %.2f%% of parallel results are wrong!", 100*(score/150),100-(100*(score/150)));
+    printf("\n");
+    return 0;
 }
