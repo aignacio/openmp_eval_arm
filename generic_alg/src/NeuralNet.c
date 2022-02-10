@@ -342,15 +342,20 @@ int main(void)
     Elapsed_Time_Serial = Elapsed_Time;
 
 
-
     printf("\n[Parallel] RUN:\n");
     omp_set_num_threads(THREADS);
     START_TIME_EVAL(begin);
 
-    #pragma omp parallel for private(result) firstprivate(neural_net,test_data) num_threads(THREADS)
+    #pragma omp parallel for private(result) schedule(static) firstprivate(neural_net,test_data)
     for(i = 0 ; i < 150 ; i++){
+        result = (double *)malloc(sizeof(double)*4);
         result = neural_net_run_parallel(neural_net, test_data[i] + 1, 4);
-        printf("[%d] %lf %lf %lf -> %d\n", i, *result, result[1], result[2], classify(result, 3));
+        printf("[th_id=%d][%d] %lf %lf %lf -> %d\n", omp_get_thread_num(),
+                                                     i,
+                                                     *result,
+                                                     result[1],
+                                                     result[2],
+                                                     classify(result, 3));
         for (int j=0;j<3;j++)
             vresult_parallel[i][j] = *(result+j);
         free(result);
@@ -358,7 +363,7 @@ int main(void)
     STOP_TIME_EVAL(begin, end);
     Elapsed_Time_Parallel = Elapsed_Time;
 
-    // Scoreboard
+    /*// Scoreboard*/
     float score = compare_result(vresult_serial, vresult_parallel, 150, 3);
     printf("\n[Serial] Total execution time: %.3f ms", Elapsed_Time_Serial);
     printf("\n[Parallel] Total execution time: %.3f ms", Elapsed_Time_Parallel);
@@ -468,7 +473,6 @@ double * neural_net_run_parallel(neural_net_t* neural_net, double *data, int len
     layer_t *layer;
     neuron_t *neuron;
     int i;
-    double result;
     double *prev_outputs = (double *)malloc(sizeof(double)*len);
     double *next_outputs = NULL;
 
@@ -484,7 +488,6 @@ double * neural_net_run_parallel(neural_net_t* neural_net, double *data, int len
     while(layer = linked_list_get_next(neural_net->layers)){
 
         linked_list_start_iterator(layer->neurons);
-        result = 0;
         next_outputs = malloc(sizeof(double) * (linked_list_length(layer->neurons)));
         i = 0;
 
