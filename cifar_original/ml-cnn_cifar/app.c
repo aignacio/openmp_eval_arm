@@ -91,6 +91,8 @@
 #include "arm_math.h"
 #include "arm_nnexamples_cifar10_parameter.h"
 #include "arm_nnexamples_cifar10_weights.h"
+
+//[aignacio] Added for profiling the code
 #include "common.h"
 #include "arm_nnfunctions.h"
 #include "arm_nnexamples_cifar10_inputs.h"
@@ -261,6 +263,8 @@ void serial_run(void){
 }
 
 void parallel_run(void){
+
+    omp_set_num_threads(THREADS);
     printf("Startup\n");
     /* start the execution */
 
@@ -423,7 +427,7 @@ void profiling_run(void){
     // conv1 img_buffer2 -> img_buffer1
     printf("Convolution - Layer 1 - ");
     START_TIME_EVAL(begin2);
-    arm_convolve_HWC_q7_RGB_omp( img_buffer2,
+    arm_convolve_HWC_q7_RGB( img_buffer2,
                              CONV1_IM_DIM,
                              CONV1_IM_CH,
                              conv1_wt,
