@@ -50,12 +50,12 @@
  *
  * \par Model definition:
  * \par
- * The CNN used in this example is based on CIFAR-10 example from Caffe [1]. 
+ * The CNN used in this example is based on CIFAR-10 example from Caffe [1].
  * The neural network consists
- * of 3 convolution layers interspersed by ReLU activation and max pooling layers, followed by a 
- * fully-connected layer at the end. The input to the network is a 32x32 pixel color image, which will 
- * be classified into one of the 10 output classes. 
- * This example model implementation needs 32.3 KB to store weights, 40 KB for activations and 
+ * of 3 convolution layers interspersed by ReLU activation and max pooling layers, followed by a
+ * fully-connected layer at the end. The input to the network is a 32x32 pixel color image, which will
+ * be classified into one of the 10 output classes.
+ * This example model implementation needs 32.3 KB to store weights, 40 KB for activations and
  * 3.1 KB for storing the \c im2col data.
  *
  * \image html CIFAR10_CNN.gif "Neural Network model definition"
@@ -91,7 +91,7 @@
 #include "arm_math.h"
 #include "arm_nnexamples_cifar10_parameter.h"
 #include "arm_nnexamples_cifar10_weights.h"
-
+#include "common.h"
 #include "arm_nnfunctions.h"
 #include "arm_nnexamples_cifar10_inputs.h"
 
@@ -111,16 +111,14 @@ static q7_t ip1_bias[IP1_OUT] = IP1_BIAS;
 
 /* Here the image_data should be the raw uint8 type RGB image in [RGB, RGB, RGB ... RGB] format */
 uint8_t   image_data[CONV1_IM_CH * CONV1_IM_DIM * CONV1_IM_DIM] = IMG_DATA;
-q7_t      output_data[IP1_OUT];
+q7_t      output_data_serial[IP1_OUT], output_data_parallel[IP1_OUT];
 
 //vector buffer: max(im2col buffer,average pool buffer, fully connected buffer)
 q7_t      col_buffer[2 * 5 * 5 * 32 * 2];
 
 q7_t      scratch_buffer[32 * 32 * 10 * 4];
 
-int main()
-{
-
+void serial_run(void){
     printf("Startup\n");
     /* start the execution */
 
@@ -246,19 +244,369 @@ int main()
                                 IP1_BIAS_LSHIFT,
                                 IP1_OUT_RSHIFT,
                                 ip1_bias,
-                                output_data,
+                                output_data_serial,
                                 (q15_t *) img_buffer1 );
 
-    arm_softmax_q7( output_data,
+    arm_softmax_q7( output_data_serial,
                     10,
-                    output_data );
+                    output_data_serial );
 
     printf("Output classification:\n");
     for (int i = 0; i < 10; i++)
     {
-        printf("%d: %d\n", i, output_data[i]);
+        printf("%d: %d\n", i, output_data_serial[i]);
     }
     printf("Application end!\n");
 
+}
+
+void parallel_run(void){
+    printf("Startup\n");
+    /* start the execution */
+
+    q7_t     *img_buffer1 = scratch_buffer;
+    q7_t     *img_buffer2 = img_buffer1 + 32 * 32 * 32;
+
+    /* input pre-processing */
+    int mean_data[3] = INPUT_MEAN_SHIFT;
+    unsigned int scale_data[3] = INPUT_RIGHT_SHIFT;
+    for (int i=0;i<32*32*3; i+=3) {
+    img_buffer2[i] =   (q7_t)__SSAT( ((((int)image_data[i]   - mean_data[0])<<7) + (0x1<<(scale_data[0]-1)))
+                            >> scale_data[0], 8);
+    img_buffer2[i+1] = (q7_t)__SSAT( ((((int)image_data[i+1] - mean_data[1])<<7) + (0x1<<(scale_data[1]-1)))
+                            >> scale_data[1], 8);
+    img_buffer2[i+2] = (q7_t)__SSAT( ((((int)image_data[i+2] - mean_data[2])<<7) + (0x1<<(scale_data[2]-1)))
+                            >> scale_data[2], 8);
+    }
+
+    // conv1 img_buffer2 -> img_buffer1
+    printf("Convolution - Layer 1\n");
+    arm_convolve_HWC_q7_RGB( img_buffer2,
+                             CONV1_IM_DIM,
+                             CONV1_IM_CH,
+                             conv1_wt,
+                             CONV1_OUT_CH,
+                             CONV1_KER_DIM,
+                             CONV1_PADDING,
+                             CONV1_STRIDE,
+                             conv1_bias,
+                             CONV1_BIAS_LSHIFT,
+                             CONV1_OUT_RSHIFT,
+                             img_buffer1,
+                             CONV1_OUT_DIM,
+                             (q15_t *) col_buffer,
+                             NULL );
+
+    arm_relu_q7( img_buffer1,
+                 CONV1_OUT_DIM * CONV1_OUT_DIM * CONV1_OUT_CH );
+
+    // pool1 img_buffer1 -> img_buffer2
+    printf("Max Pooling - Layer 2\n");
+    arm_maxpool_q7_HWC( img_buffer1,
+                        CONV1_OUT_DIM,
+                        CONV1_OUT_CH,
+                        POOL1_KER_DIM,
+                        POOL1_PADDING,
+                        POOL1_STRIDE,
+                        POOL1_OUT_DIM,
+                        NULL,
+                        img_buffer2 );
+
+    // conv2 img_buffer2 -> img_buffer1
+    printf("Convolution - Layer 3\n");
+    arm_convolve_HWC_q7_fast( img_buffer2,
+                              CONV2_IM_DIM,
+                              CONV2_IM_CH,
+                              conv2_wt,
+                              CONV2_OUT_CH,
+                              CONV2_KER_DIM,
+                              CONV2_PADDING,
+                              CONV2_STRIDE,
+                              conv2_bias,
+                              CONV2_BIAS_LSHIFT,
+                              CONV2_OUT_RSHIFT,
+                              img_buffer1,
+                              CONV2_OUT_DIM,
+                              (q15_t *) col_buffer,
+                              NULL );
+
+    arm_relu_q7( img_buffer1,
+                 CONV2_OUT_DIM * CONV2_OUT_DIM * CONV2_OUT_CH );
+
+    // pool2 img_buffer1 -> img_buffer2
+    printf("Max Pooling - Layer 4\n");
+    arm_maxpool_q7_HWC( img_buffer1,
+                        CONV2_OUT_DIM,
+                        CONV2_OUT_CH,
+                        POOL2_KER_DIM,
+                        POOL2_PADDING,
+                        POOL2_STRIDE,
+                        POOL2_OUT_DIM,
+                        col_buffer,
+                        img_buffer2 );
+
+    // conv3 img_buffer2 -> img_buffer1
+    printf("Convolution - Layer 5\n");
+    arm_convolve_HWC_q7_fast( img_buffer2,
+                              CONV3_IM_DIM,
+                              CONV3_IM_CH,
+                              conv3_wt,
+                              CONV3_OUT_CH,
+                              CONV3_KER_DIM,
+                              CONV3_PADDING,
+                              CONV3_STRIDE,
+                              conv3_bias,
+                              CONV3_BIAS_LSHIFT,
+                              CONV3_OUT_RSHIFT,
+                              img_buffer1,
+                              CONV3_OUT_DIM,
+                              (q15_t *) col_buffer,
+                              NULL);
+
+    arm_relu_q7( img_buffer1,
+                 CONV3_OUT_DIM * CONV3_OUT_DIM * CONV3_OUT_CH );
+
+    // pool3 img_buffer-> img_buffer2
+    printf("Max Pooling - Layer 6\n");
+    arm_maxpool_q7_HWC( img_buffer1,
+                        CONV3_OUT_DIM,
+                        CONV3_OUT_CH,
+                        POOL3_KER_DIM,
+                        POOL3_PADDING,
+                        POOL3_STRIDE,
+                        POOL3_OUT_DIM,
+                        col_buffer,
+                        img_buffer2);
+
+    printf("Fully-Connected - Layer 7\n");
+    arm_fully_connected_q7_opt( img_buffer2,
+                                ip1_wt,
+                                IP1_DIM,
+                                IP1_OUT,
+                                IP1_BIAS_LSHIFT,
+                                IP1_OUT_RSHIFT,
+                                ip1_bias,
+                                output_data_parallel,
+                                (q15_t *) img_buffer1 );
+
+    arm_softmax_q7( output_data_parallel,
+                    10,
+                    output_data_parallel );
+
+    printf("Output classification:\n");
+    for (int i = 0; i < 10; i++)
+    {
+        printf("%d: %d\n", i, output_data_parallel[i]);
+    }
+    printf("Application end!\n");
+}
+
+void profiling_run(void){
+    printf("Startup\n");
+    /* start the execution */
+
+    q7_t     *img_buffer1 = scratch_buffer;
+    q7_t     *img_buffer2 = img_buffer1 + 32 * 32 * 32;
+
+    /* input pre-processing */
+    int mean_data[3] = INPUT_MEAN_SHIFT;
+    unsigned int scale_data[3] = INPUT_RIGHT_SHIFT;
+    for (int i=0;i<32*32*3; i+=3) {
+    img_buffer2[i] =   (q7_t)__SSAT( ((((int)image_data[i]   - mean_data[0])<<7) + (0x1<<(scale_data[0]-1)))
+                            >> scale_data[0], 8);
+    img_buffer2[i+1] = (q7_t)__SSAT( ((((int)image_data[i+1] - mean_data[1])<<7) + (0x1<<(scale_data[1]-1)))
+                            >> scale_data[1], 8);
+    img_buffer2[i+2] = (q7_t)__SSAT( ((((int)image_data[i+2] - mean_data[2])<<7) + (0x1<<(scale_data[2]-1)))
+                            >> scale_data[2], 8);
+    }
+
+    // conv1 img_buffer2 -> img_buffer1
+    printf("Convolution - Layer 1 - ");
+    START_TIME_EVAL(begin2);
+    arm_convolve_HWC_q7_RGB_omp( img_buffer2,
+                             CONV1_IM_DIM,
+                             CONV1_IM_CH,
+                             conv1_wt,
+                             CONV1_OUT_CH,
+                             CONV1_KER_DIM,
+                             CONV1_PADDING,
+                             CONV1_STRIDE,
+                             conv1_bias,
+                             CONV1_BIAS_LSHIFT,
+                             CONV1_OUT_RSHIFT,
+                             img_buffer1,
+                             CONV1_OUT_DIM,
+                             (q15_t *) col_buffer,
+                             NULL );
+
+    arm_relu_q7( img_buffer1,
+                 CONV1_OUT_DIM * CONV1_OUT_DIM * CONV1_OUT_CH );
+    STOP_TIME_EVAL(begin2, end2);
+    Elapsed_Time_profiling = Elapsed_Time;
+    printf("Exec time: %.3f ms\n", Elapsed_Time_profiling);
+
+    // pool1 img_buffer1 -> img_buffer2
+    printf("Max Pooling - Layer 2 - ");
+    START_TIME_EVAL(begin2);
+    arm_maxpool_q7_HWC( img_buffer1,
+                        CONV1_OUT_DIM,
+                        CONV1_OUT_CH,
+                        POOL1_KER_DIM,
+                        POOL1_PADDING,
+                        POOL1_STRIDE,
+                        POOL1_OUT_DIM,
+                        NULL,
+                        img_buffer2 );
+    STOP_TIME_EVAL(begin2, end2);
+    Elapsed_Time_profiling = Elapsed_Time;
+    printf("Exec time: %.3f ms\n", Elapsed_Time_profiling);
+
+    // conv2 img_buffer2 -> img_buffer1
+    printf("Convolution - Layer 3 - ");
+    START_TIME_EVAL(begin2);
+    arm_convolve_HWC_q7_fast( img_buffer2,
+                              CONV2_IM_DIM,
+                              CONV2_IM_CH,
+                              conv2_wt,
+                              CONV2_OUT_CH,
+                              CONV2_KER_DIM,
+                              CONV2_PADDING,
+                              CONV2_STRIDE,
+                              conv2_bias,
+                              CONV2_BIAS_LSHIFT,
+                              CONV2_OUT_RSHIFT,
+                              img_buffer1,
+                              CONV2_OUT_DIM,
+                              (q15_t *) col_buffer,
+                              NULL );
+
+    arm_relu_q7( img_buffer1,
+                 CONV2_OUT_DIM * CONV2_OUT_DIM * CONV2_OUT_CH );
+    STOP_TIME_EVAL(begin2, end2);
+    Elapsed_Time_profiling = Elapsed_Time;
+    printf("Exec time: %.3f ms\n", Elapsed_Time_profiling);
+
+    // pool2 img_buffer1 -> img_buffer2
+    printf("Max Pooling - Layer 4 - ");
+    START_TIME_EVAL(begin2);
+    arm_maxpool_q7_HWC( img_buffer1,
+                        CONV2_OUT_DIM,
+                        CONV2_OUT_CH,
+                        POOL2_KER_DIM,
+                        POOL2_PADDING,
+                        POOL2_STRIDE,
+                        POOL2_OUT_DIM,
+                        col_buffer,
+                        img_buffer2 );
+    STOP_TIME_EVAL(begin2, end2);
+    Elapsed_Time_profiling = Elapsed_Time;
+    printf("Exec time: %.3f ms\n", Elapsed_Time_profiling);
+
+    // conv3 img_buffer2 -> img_buffer1
+    printf("Convolution - Layer 5 - ");
+    START_TIME_EVAL(begin2);
+    arm_convolve_HWC_q7_fast( img_buffer2,
+                              CONV3_IM_DIM,
+                              CONV3_IM_CH,
+                              conv3_wt,
+                              CONV3_OUT_CH,
+                              CONV3_KER_DIM,
+                              CONV3_PADDING,
+                              CONV3_STRIDE,
+                              conv3_bias,
+                              CONV3_BIAS_LSHIFT,
+                              CONV3_OUT_RSHIFT,
+                              img_buffer1,
+                              CONV3_OUT_DIM,
+                              (q15_t *) col_buffer,
+                              NULL);
+
+    arm_relu_q7( img_buffer1,
+                 CONV3_OUT_DIM * CONV3_OUT_DIM * CONV3_OUT_CH );
+    STOP_TIME_EVAL(begin2, end2);
+    Elapsed_Time_profiling = Elapsed_Time;
+    printf("Exec time: %.3f ms\n", Elapsed_Time_profiling);
+
+    // pool3 img_buffer-> img_buffer2
+    printf("Max Pooling - Layer 6 - ");
+    START_TIME_EVAL(begin2);
+    arm_maxpool_q7_HWC( img_buffer1,
+                        CONV3_OUT_DIM,
+                        CONV3_OUT_CH,
+                        POOL3_KER_DIM,
+                        POOL3_PADDING,
+                        POOL3_STRIDE,
+                        POOL3_OUT_DIM,
+                        col_buffer,
+                        img_buffer2);
+    STOP_TIME_EVAL(begin2, end2);
+    Elapsed_Time_profiling = Elapsed_Time;
+    printf("Exec time: %.3f ms\n", Elapsed_Time_profiling);
+
+
+    printf("Fully-Connected - Layer 7 - ");
+    START_TIME_EVAL(begin2);
+    arm_fully_connected_q7_opt( img_buffer2,
+                                ip1_wt,
+                                IP1_DIM,
+                                IP1_OUT,
+                                IP1_BIAS_LSHIFT,
+                                IP1_OUT_RSHIFT,
+                                ip1_bias,
+                                output_data_parallel,
+                                (q15_t *) img_buffer1 );
+
+    arm_softmax_q7( output_data_parallel,
+                    10,
+                    output_data_parallel );
+    STOP_TIME_EVAL(begin2, end2);
+    Elapsed_Time_profiling = Elapsed_Time;
+    printf("Exec time: %.3f ms\n", Elapsed_Time_profiling);
+
+    printf("Output classification:\n");
+    for (int i = 0; i < 10; i++)
+    {
+        printf("%d: %d\n", i, output_data_parallel[i]);
+    }
+    printf("Application end!\n");
+}
+
+
+int main()
+{
+    printf("\n[Serial] RUN:\n");
+    START_TIME_EVAL(begin);
+    serial_run();
+    STOP_TIME_EVAL(begin, end);
+    Elapsed_Time_Serial = Elapsed_Time;
+
+    printf("\n[Parallel] RUN:\n");
+    START_TIME_EVAL(begin);
+    parallel_run();
+    STOP_TIME_EVAL(begin, end);
+    Elapsed_Time_Parallel = Elapsed_Time;
+
+    printf("\n[Profiling] RUN:\n");
+    START_TIME_EVAL(begin);
+    profiling_run();
+    STOP_TIME_EVAL(begin, end);
+    Elapsed_Time_profiling = Elapsed_Time;
+
+    /************************************************************************
+     *
+     *  Evaluating processing time and scoreboard
+     *
+     ************************************************************************/
+    float score = 0.0;
+    printf("\nComparison of serial vs parallel run:");
+    for (int i=0; i<IP1_OUT; i++){
+        printf("\n[%d] === [%d]",output_data_serial[i], output_data_parallel[i]);
+        if (output_data_serial[i] == output_data_parallel[i])
+            score++;
+    }
+    printf("\n[Serial] Total execution time: %.3f ms", Elapsed_Time_Serial);
+    printf("\n[Parallel] Total execution time: %.3f ms", Elapsed_Time_Parallel);
+    printf("\n[Profiling] Total execution time: %.3f ms", Elapsed_Time_profiling);
+    printf("\n[Score] %.2f%% ---> %.2f%% of parallel results are wrong!\n\n", 100*(score/IP1_OUT),100-(100*(score/IP1_OUT)));
 return 0;
 }

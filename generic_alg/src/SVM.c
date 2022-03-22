@@ -333,6 +333,7 @@ int main(){
     Elapsed_Time_Parallel = Elapsed_Time;
 
     float score = 0.0;
+    printf("\nComparison of serial vs parallel run:");
     for (int i=0; i<150; i++){
         printf("\n[%d] === [%d]",vresult_serial[i], vresult_parallel[i]);
         if (vresult_serial[i] == vresult_parallel[i])

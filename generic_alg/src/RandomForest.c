@@ -25,7 +25,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "common.h"
+#include "../common.h"
 //
 // node in decision tree
 //
@@ -377,6 +377,7 @@ int main(void)
     parallel_run();
     /*float score = compare_result_float(results_serial, results_parallel, 75, 1);*/
     float score = 0.0;
+    printf("\nComparison of serial vs parallel run:");
     for (int i=0; i<75; i++){
         printf("\n[%.2f] === [%.2f]",results_serial[i],results_parallel[i]);
         if (results_serial[i] == results_parallel[i])

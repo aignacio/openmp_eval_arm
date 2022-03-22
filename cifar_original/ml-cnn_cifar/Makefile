@@ -19,11 +19,11 @@ MULT?=
 DEF?=
 
 -include NN.makefile.include
-
-#_CC_ARM	=		arm-linux-gnueabi-gcc
-_CC_ARM	=		aarch64-linux-gnu-gcc
+THREADS = 10
+_CC_ARM	=		arm-linux-gnueabi-gcc
+#_CC_ARM	=		aarch64-linux-gnu-gcc
 #GNG_CC	=	arm-linux-gnueabi-gcc
-GNG_CC	=		docker run --rm -v "$(abspath ../)":/src -w /src/ml-cnn_cifar arm_gcc_aignacio $(_CC_ARM)
+GNG_CC	=		docker run --rm -v "$(abspath ../)":/src -w /src/ml-cnn_cifar aignacio/arm_gcc $(_CC_ARM)
 SRCINC?=
 ASSDBG=
 INCOBJ=$(patsubst %.c,%$(MULT).$(CROSS).o,$(SRCINC))
@@ -31,6 +31,7 @@ EXE=$(patsubst %.c,%.o,$(SRC))
 EXEPP=$(patsubst %.cpp,%.o,$(SRCPP))
 CFLAGS += -O3
 CFLAGS += -w -g -fopenmp
+CFLAGS +=	-DTHREADS=$(THREADS)
 #CFLAGS += -std=gnu99
 
 SRC+= \
@@ -40,12 +41,13 @@ SRCPP+=$(wildcard *.cpp)
 
 SRCOBJ := $(patsubst %.c,%.o,$(SRC))
 
-#
-# ---------------------------------------------------------------------------------------
 all: all_$(TOOL_CHAIN)
 
-# ---------------------------------------------------------------------------------------
-# gcc
+run:
+	docker run --rm --name arm_gcc_test -v $(abspath .):/src -w /src aignacio/arm_gcc ./app.exe
+
+#docker run --rm --name arm_gcc_test -it -v $(pwd):/src -w /src aignacio/arm_gcc ./cifar_original/ml-cnn_cifar/app.exe
+
 ifeq ($(TOOL_CHAIN),gcc)
 
 all_gcc: clean exe

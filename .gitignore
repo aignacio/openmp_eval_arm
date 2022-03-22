@@ -27,4 +27,5 @@ fusesoc.conf
 *.i
 *.fst
 output_temp/
+build_gem5/
 *.exe

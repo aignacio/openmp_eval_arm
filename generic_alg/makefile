@@ -2,11 +2,11 @@
 # License           : MIT license <Check LICENSE>
 # Author            : Anderson Ignacio da Silva (aignacio) <anderson@aignacio.com>
 # Date              : 05.02.2022
-# Last Modified Date: 10.02.2022
+# Last Modified Date: 22.03.2022
 
 #_CC			=		aarch64-linux-gnu-gcc
 _CC			=		arm-linux-gnueabi-gcc
-CC			=		docker run --rm -v "$(abspath .)":/src -w /src arm_gcc_aignacio $(_CC)
+CC			=		docker run --rm -v "$(abspath .)":/src -w /src aignacio/arm_gcc $(_CC)
 THREADS	=		10
 CFLAGS	:=	-Wall -g -lm -fopenmp -I. -DTHREADS=$(THREADS)
 ODIR		:=	output
@@ -20,10 +20,10 @@ $(shell   mkdir -p $(ODIR))
 # To run the toolchain in interactive mode, run the following in the terminal
 #	docker run --rm --name arm_gcc_test -it -v $(pwd):/src -w /src arm_gcc_aignacio bash
 run:
-	docker run --rm --name arm_gcc_test -it -v $(abspath .):/src -w /src arm_gcc_aignacio output/NeuralNet
+	docker run --rm --name arm_gcc_test -v $(abspath .):/src -w /src aignacio/arm_gcc output/NeuralNet
 
 build:
-	docker build -t arm_gcc_aignacio:latest ..
+	docker build -t arm_gcc:latest .. --progress tty
 
 all: $(OBJ)
 	@echo $(OBJ)
