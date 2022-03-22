@@ -113,7 +113,7 @@ static q7_t ip1_bias[IP1_OUT] = IP1_BIAS;
 
 /* Here the image_data should be the raw uint8 type RGB image in [RGB, RGB, RGB ... RGB] format */
 uint8_t   image_data[CONV1_IM_CH * CONV1_IM_DIM * CONV1_IM_DIM] = IMG_DATA;
-q7_t      output_data_serial[IP1_OUT], output_data_parallel[IP1_OUT];
+q7_t      output_data_serial[IP1_OUT], output_data_parallel[IP1_OUT], output_data_profiling[IP1_OUT];
 
 //vector buffer: max(im2col buffer,average pool buffer, fully connected buffer)
 q7_t      col_buffer[2 * 5 * 5 * 32 * 2];
@@ -557,12 +557,12 @@ void profiling_run(void){
                                 IP1_BIAS_LSHIFT,
                                 IP1_OUT_RSHIFT,
                                 ip1_bias,
-                                output_data_parallel,
+                                output_data_profiling,
                                 (q15_t *) img_buffer1 );
 
-    arm_softmax_q7( output_data_parallel,
+    arm_softmax_q7( output_data_profiling,
                     10,
-                    output_data_parallel );
+                    output_data_profiling );
     STOP_TIME_EVAL(begin2, end2);
     Elapsed_Time_profiling = Elapsed_Time;
     printf("Exec time: %.3f ms\n", Elapsed_Time_profiling);
@@ -570,7 +570,7 @@ void profiling_run(void){
     printf("Output classification:\n");
     for (int i = 0; i < 10; i++)
     {
-        printf("%d: %d\n", i, output_data_parallel[i]);
+        printf("%d: %d\n", i, output_data_profiling[i]);
     }
     printf("Application end!\n");
 }
