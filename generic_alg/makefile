@@ -2,7 +2,7 @@
 # License           : MIT license <Check LICENSE>
 # Author            : Anderson Ignacio da Silva (aignacio) <anderson@aignacio.com>
 # Date              : 05.02.2022
-# Last Modified Date: 22.03.2022
+# Last Modified Date: 29.03.2022
 
 #_CC			=		aarch64-linux-gnu-gcc
 _CC			=		arm-linux-gnueabi-gcc
@@ -15,7 +15,7 @@ OBJ			:=	$(patsubst %,$(ODIR)/%,$(_OBJ))
 
 $(shell   mkdir -p $(ODIR))
 
-.PHONY: all clean build
+.PHONY: all clean build run
 
 # To run the toolchain in interactive mode, run the following in the terminal
 #	docker run --rm --name arm_gcc_test -it -v $(pwd):/src -w /src arm_gcc_aignacio bash

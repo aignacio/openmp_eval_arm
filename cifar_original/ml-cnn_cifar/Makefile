@@ -1,5 +1,15 @@
+##########################################
+# Parameters to configure the tweaks
+#########################################
+THREADS						?= 4  # Num of threads dispatched by OMP
+NUM_RUNS					?= 10 # Num of runs to compute average of proc
+ENABLE_SERIAL_RUN ?= 1
+ENABLE_PARAL_RUN	?= 1
+ENABLE_PROFIL_RUN	?= 0
+
+##########################################
 CMSIS_DIR    = ../CMSIS_5
-DSP_DIR		 = $(CMSIS_DIR)/CMSIS/DSP
+DSP_DIR			 = $(CMSIS_DIR)/CMSIS/DSP
 NN_DIR    	 = $(CMSIS_DIR)/CMSIS/NN
 CORE_DIR     = $(CMSIS_DIR)/CMSIS/Core/Include
 
@@ -19,7 +29,6 @@ MULT?=
 DEF?=
 
 -include NN.makefile.include
-THREADS = 10
 _CC_ARM	=		arm-linux-gnueabi-gcc
 #_CC_ARM	=		aarch64-linux-gnu-gcc
 #GNG_CC	=	arm-linux-gnueabi-gcc
@@ -32,7 +41,16 @@ EXEPP=$(patsubst %.cpp,%.o,$(SRCPP))
 CFLAGS += -O3
 CFLAGS += -w -g -fopenmp
 CFLAGS +=	-DTHREADS=$(THREADS)
-#CFLAGS += -std=gnu99
+CFLAGS +=	-DNUM_RUNS=$(NUM_RUNS)
+ifeq ($(ENABLE_SERIAL_RUN),1)
+CFLAGS +=	-DENABLE_SERIAL_RUN=1
+endif
+ifeq ($(ENABLE_PARAL_RUN),1)
+CFLAGS +=	-DENABLE_PARAL_RUN=1
+endif
+ifeq ($(ENABLE_PROFIL_RUN),1)
+CFLAGS +=	-DENABLE_PROFIL_RUN=1
+endif
 
 SRC+= \
      $(wildcard *.c)

@@ -12,6 +12,16 @@ double Elapsed_Time, Elapsed_Time_Serial, Elapsed_Time_Parallel, Elapsed_Time_pr
 
 struct timeval begin2, end2;
 
+double get_average_proc(double *val){
+    double average = 0;
+
+    for (int i=0; i<NUM_RUNS; i++){
+        average += *(val++);
+    }
+
+    return average/NUM_RUNS;
+}
+
 float compare_result(double *v1, double *v2, int iter, int cols_per_row){
     float score = 0;
 

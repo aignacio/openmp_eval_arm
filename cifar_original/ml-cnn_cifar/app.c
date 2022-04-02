@@ -285,7 +285,7 @@ void parallel_run(void){
 
     // conv1 img_buffer2 -> img_buffer1
     printf("Convolution - Layer 1\n");
-    arm_convolve_HWC_q7_RGB( img_buffer2,
+    arm_convolve_HWC_q7_RGB_omp( img_buffer2,
                              CONV1_IM_DIM,
                              CONV1_IM_CH,
                              conv1_wt,
@@ -578,23 +578,38 @@ void profiling_run(void){
 
 int main()
 {
-    printf("\n[Serial] RUN:\n");
-    START_TIME_EVAL(begin);
-    serial_run();
-    STOP_TIME_EVAL(begin, end);
-    Elapsed_Time_Serial = Elapsed_Time;
+    double time_serial[NUM_RUNS],
+           time_pll[NUM_RUNS];
 
-    printf("\n[Parallel] RUN:\n");
-    START_TIME_EVAL(begin);
-    parallel_run();
-    STOP_TIME_EVAL(begin, end);
-    Elapsed_Time_Parallel = Elapsed_Time;
+#ifdef ENABLE_SERIAL_RUN
+    for (int i=0;i<NUM_RUNS;i++){
+        printf("\n[Serial] RUN:\n");
+        START_TIME_EVAL(begin);
+        serial_run();
+        STOP_TIME_EVAL(begin, end);
+        Elapsed_Time_Serial = Elapsed_Time;
+        time_serial[i] = Elapsed_Time_Serial;
+    }
+#endif
 
+#ifdef ENABLE_PARAL_RUN
+    for (int i=0;i<NUM_RUNS;i++){
+        printf("\n[Parallel] RUN:\n");
+        START_TIME_EVAL(begin);
+        parallel_run();
+        STOP_TIME_EVAL(begin, end);
+        Elapsed_Time_Parallel = Elapsed_Time;
+        time_pll[i] = Elapsed_Time_Parallel;
+    }
+#endif
+
+#ifdef ENABLE_PROFIL_RUN
     printf("\n[Profiling] RUN:\n");
     START_TIME_EVAL(begin);
     profiling_run();
     STOP_TIME_EVAL(begin, end);
     Elapsed_Time_profiling = Elapsed_Time;
+#endif
 
     /************************************************************************
      *
@@ -608,9 +623,21 @@ int main()
         if (output_data_serial[i] == output_data_parallel[i])
             score++;
     }
-    printf("\n[Serial] Total execution time: %.3f ms", Elapsed_Time_Serial);
-    printf("\n[Parallel] Total execution time: %.3f ms", Elapsed_Time_Parallel);
+
+
+#ifdef ENABLE_SERIAL_RUN
+    printf("\n[Serial] Total execution time: %.3f ms", get_average_proc(time_serial));
+#endif
+
+#ifdef ENABLE_PARAL_RUN
+    printf("\n[Parallel] Total execution time: %.3f ms", get_average_proc(time_pll));
+#endif
+
+#ifdef ENABLE_PARAL_RUN
     printf("\n[Profiling] Total execution time: %.3f ms", Elapsed_Time_profiling);
-    printf("\n[Score] %.2f%% ---> %.2f%% of parallel results are wrong!\n\n", 100*(score/IP1_OUT),100-(100*(score/IP1_OUT)));
+#endif
+
+    printf("\n[Score] %.2f%% ---> %.2f%% of parallel results are wrong!\n\n",\
+            100*(score/IP1_OUT),100-(100*(score/IP1_OUT)));
 return 0;
 }
