@@ -53,3 +53,19 @@ float compare_result_float(float *v1, float *v2, int iter, int cols_per_row){
     score = ((score)/(150*3))*100;
     return score;
 }
+
+//void init_measure(){
+
+    //int fd = open("/sys/class/gpio/export", O_WRONLY);
+    //if (fd == -1) {
+        //perror("Unable to open /sys/class/gpio/export");
+        //exit(1);
+    //}
+
+    //if (write(fd, "24", 2) != 2) {
+        //perror("Error writing to /sys/class/gpio/export");
+        //exit(1);
+    //}
+
+    //close(fd);
+//}

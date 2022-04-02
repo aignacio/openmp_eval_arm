@@ -119,7 +119,7 @@ arm_convolve_HWC_q7_fast_omp(const q7_t * Im_in,
     }
 
     {
-        #pragma omp parallel for collapse(3) shared(conv_out, Im_out) schedule(static) firstprivate(stride, padding, dim_im_out, ch_im_out, dim_kernel, ch_im_in, bias, bias_shift, out_shift)
+        #pragma omp parallel for collapse(3) shared(conv_out, Im_out) schedule(static) firstprivate(Im_in, stride, padding, dim_im_out, ch_im_out, dim_kernel, ch_im_in, bias, bias_shift, out_shift)
         for (i = 0; i < ch_im_out; i++)
         {
             for (j = 0; j < dim_im_out; j++)
@@ -138,6 +138,8 @@ arm_convolve_HWC_q7_fast_omp(const q7_t * Im_in,
                             {
                                 for (l = 0; l < ch_im_in; l++)
                                 {
+
+                                    #pragma omp critical
                                     conv_out +=
                                         Im_in[(in_row * dim_im_in + in_col) * ch_im_in +
                                               l] * wt[i * ch_im_in * dim_kernel * dim_kernel + (m * dim_kernel +
@@ -146,6 +148,8 @@ arm_convolve_HWC_q7_fast_omp(const q7_t * Im_in,
                             }
                         }
                     }
+
+                    #pragma omp critical
                     Im_out[i + (j * dim_im_out + k) * ch_im_out] = (q7_t) __SSAT((conv_out >> out_shift), 8);
                 }
             }

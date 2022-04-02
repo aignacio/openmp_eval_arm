@@ -238,7 +238,7 @@ arm_convolve_HWC_q7_RGB_omp(const q7_t * Im_in,
     }
 
 
-    #pragma omp parallel for collapse(3) shared(conv_out, Im_out) schedule(static) firstprivate(stride, padding, dim_im_out, ch_im_out, dim_kernel, ch_im_in, bias, bias_shift, out_shift)
+    #pragma omp parallel for collapse(3) shared(conv_out, Im_out) schedule(static) firstprivate(Im_in, stride, padding, dim_im_out, ch_im_out, dim_kernel, ch_im_in, bias, bias_shift, out_shift)
     for (i = 0; i < ch_im_out; i++)
     {
         for (j = 0; j < dim_im_out; j++)
