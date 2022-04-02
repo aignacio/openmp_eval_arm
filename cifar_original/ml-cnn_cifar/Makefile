@@ -6,6 +6,7 @@ NUM_RUNS					?= 10 # Num of runs to compute average of proc
 ENABLE_SERIAL_RUN ?= 1
 ENABLE_PARAL_RUN	?= 1
 ENABLE_PROFIL_RUN	?= 0
+USE_DOCKER				?= 0
 
 ##########################################
 CMSIS_DIR    = ../CMSIS_5
@@ -32,7 +33,11 @@ DEF?=
 _CC_ARM	=		arm-linux-gnueabi-gcc
 #_CC_ARM	=		aarch64-linux-gnu-gcc
 #GNG_CC	=	arm-linux-gnueabi-gcc
+ifeq ($(USE_DOCKER),1)
 GNG_CC	=		docker run --rm -v "$(abspath ../)":/src -w /src/ml-cnn_cifar aignacio/arm_gcc $(_CC_ARM)
+else
+GNG_CC	=		arm-linux-gnueabihf-gcc
+endif
 SRCINC?=
 ASSDBG=
 INCOBJ=$(patsubst %.c,%$(MULT).$(CROSS).o,$(SRCINC))

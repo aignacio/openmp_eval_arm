@@ -318,7 +318,7 @@ void parallel_run(void){
 
     // conv2 img_buffer2 -> img_buffer1
     printf("Convolution - Layer 3\n");
-    arm_convolve_HWC_q7_fast( img_buffer2,
+    arm_convolve_HWC_q7_fast_omp( img_buffer2,
                               CONV2_IM_DIM,
                               CONV2_IM_CH,
                               conv2_wt,

@@ -88,6 +88,73 @@
    * This reduces the total number of boundary condition checks and improves
    * the data copying performance.
    */
+arm_status
+arm_convolve_HWC_q7_fast_omp(const q7_t * Im_in,
+                         const uint16_t dim_im_in,
+                         const uint16_t ch_im_in,
+                         const q7_t * wt,
+                         const uint16_t ch_im_out,
+                         const uint16_t dim_kernel,
+                         const uint16_t padding,
+                         const uint16_t stride,
+                         const q7_t * bias,
+                         const uint16_t bias_shift,
+                         const uint16_t out_shift,
+                         q7_t * Im_out,
+                         const uint16_t dim_im_out,
+                         q15_t * bufferA,
+                         q7_t * bufferB)
+{
+    (void)bufferB;
+    /* Run the following code as reference implementation for Cortex-M0 and Cortex-M3 */
+
+    int  i, j, k, l, m, n;
+    int       conv_out;
+    int in_row, in_col;
+
+    if (ch_im_in % 4 != 0 || ch_im_out % 2 != 0)
+    {
+        /* check if the input dimension meets the constraints */
+        return ARM_MATH_SIZE_MISMATCH;
+    }
+
+    {
+        #pragma omp parallel for collapse(3) shared(conv_out, Im_out) schedule(static) firstprivate(stride, padding, dim_im_out, ch_im_out, dim_kernel, ch_im_in, bias, bias_shift, out_shift)
+        for (i = 0; i < ch_im_out; i++)
+        {
+            for (j = 0; j < dim_im_out; j++)
+            {
+                for (k = 0; k < dim_im_out; k++)
+                {
+                    conv_out = (bias[i] << bias_shift) + NN_ROUND(out_shift);
+                    for (m = 0; m < dim_kernel; m++)
+                    {
+                        for (n = 0; n < dim_kernel; n++)
+                        {
+                            // if-for implementation
+                            in_row = stride * j + m - padding;
+                            in_col = stride * k + n - padding;
+                            if (in_row >= 0 && in_col >= 0 && in_row < dim_im_in && in_col < dim_im_in)
+                            {
+                                for (l = 0; l < ch_im_in; l++)
+                                {
+                                    conv_out +=
+                                        Im_in[(in_row * dim_im_in + in_col) * ch_im_in +
+                                              l] * wt[i * ch_im_in * dim_kernel * dim_kernel + (m * dim_kernel +
+                                                                                                n) * ch_im_in + l];
+                                }
+                            }
+                        }
+                    }
+                    Im_out[i + (j * dim_im_out + k) * ch_im_out] = (q7_t) __SSAT((conv_out >> out_shift), 8);
+                }
+            }
+        }
+    }
+    /* Return to application */
+    return ARM_MATH_SUCCESS;
+}
+
 
 arm_status
 arm_convolve_HWC_q7_fast(const q7_t * Im_in,
