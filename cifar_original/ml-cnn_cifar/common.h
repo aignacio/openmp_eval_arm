@@ -54,18 +54,43 @@ float compare_result_float(float *v1, float *v2, int iter, int cols_per_row){
     return score;
 }
 
-//void init_measure(){
+void init_measure(){
 
-    //int fd = open("/sys/class/gpio/export", O_WRONLY);
-    //if (fd == -1) {
-        //perror("Unable to open /sys/class/gpio/export");
-        //exit(1);
-    //}
+    int fd = open("/sys/class/gpio/export", O_WRONLY);
+    if (fd == -1) {
+        perror("Unable to open /sys/class/gpio/export");
+        exit(1);
+    }
 
-    //if (write(fd, "24", 2) != 2) {
-        //perror("Error writing to /sys/class/gpio/export");
-        //exit(1);
-    //}
+    if (write(fd, "24", 2) != 2) {
+        perror("Error writing to /sys/class/gpio/export");
+        exit(1);
+    }
 
-    //close(fd);
-//}
+    close(fd);
+    //Set the pin to be an output by writing "out" to /sys/class/gpio/gpio26/direction
+
+    fd = open("/sys/class/gpio/gpio26/direction", O_WRONLY);
+    if (fd == -1) {
+        perror("Unable to open /sys/class/gpio/gpio26/direction");
+        exit(1);
+    }
+
+    if (write(fd, "out", 3) != 3) {
+        perror("Error writing to /sys/class/gpio/gpio26/direction");
+        exit(1);
+    }
+
+    close(fd);
+
+    fd = open("/sys/class/gpio/gpio26/value", O_WRONLY);
+    if (fd == -1) {
+        perror("Unable to open /sys/class/gpio/gpio26/value");
+        exit(1);
+    }
+
+    if (write(fd, "1", 1) != 1) {
+        perror("Error writing to /sys/class/gpio/gpio26/value");
+        exit(1);
+    }
+}
