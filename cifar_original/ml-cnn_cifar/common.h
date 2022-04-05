@@ -168,6 +168,7 @@ void delay(float time){
 void start_measure(){
     access_gpio(26);
     direction_gpio(26, OUTPUT);
+    export_gpio(26);
     value_gpio(26, LOW);
 }
 
