@@ -1,5 +1,12 @@
 #include <sys/time.h>
 #include <omp.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 // [aignacio] - Macros for profiling code
 #define START_TIME_EVAL(x)  gettimeofday(&x, NULL)
@@ -9,7 +16,7 @@
 
 struct timeval begin, end;
 double Elapsed_Time, Elapsed_Time_Serial, Elapsed_Time_Parallel, Elapsed_Time_profiling;
-
+int fd;
 struct timeval begin2, end2;
 
 double get_average_proc(double *val){
@@ -54,15 +61,15 @@ float compare_result_float(float *v1, float *v2, int iter, int cols_per_row){
     return score;
 }
 
-void init_measure(){
+void setup_gpio(){
+    fd = open("/sys/class/gpio/export", O_WRONLY);
 
-    int fd = open("/sys/class/gpio/export", O_WRONLY);
     if (fd == -1) {
         perror("Unable to open /sys/class/gpio/export");
         exit(1);
     }
 
-    if (write(fd, "24", 2) != 2) {
+    if (write(fd, "26", 2) != 2) {
         perror("Error writing to /sys/class/gpio/export");
         exit(1);
     }
@@ -82,7 +89,22 @@ void init_measure(){
     }
 
     close(fd);
+}
 
+void start_measure(){
+    fd = open("/sys/class/gpio/gpio26/value", O_WRONLY);
+    if (fd == -1) {
+        perror("Unable to open /sys/class/gpio/gpio26/value");
+        exit(1);
+    }
+
+    if (write(fd, "0", 1) != 1) {
+        perror("Error writing to /sys/class/gpio/gpio26/value");
+        exit(1);
+    }
+}
+
+void stop_measure(){
     fd = open("/sys/class/gpio/gpio26/value", O_WRONLY);
     if (fd == -1) {
         perror("Unable to open /sys/class/gpio/gpio26/value");
@@ -94,3 +116,4 @@ void init_measure(){
         exit(1);
     }
 }
+

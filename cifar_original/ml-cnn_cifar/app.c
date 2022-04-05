@@ -581,6 +581,7 @@ int main()
     double time_serial[NUM_RUNS],
            time_pll[NUM_RUNS];
 
+    setup_gpio();
 #ifdef ENABLE_SERIAL_RUN
     for (int i=0;i<NUM_RUNS;i++){
         printf("\n[Serial] RUN:\n");
@@ -593,6 +594,7 @@ int main()
 #endif
 
 #ifdef ENABLE_PARAL_RUN
+    start_measure();
     for (int i=0;i<NUM_RUNS;i++){
         printf("\n[Parallel] RUN:\n");
         START_TIME_EVAL(begin);
@@ -601,6 +603,7 @@ int main()
         Elapsed_Time_Parallel = Elapsed_Time;
         time_pll[i] = Elapsed_Time_Parallel;
     }
+    stop_measure();
 #endif
 
 #ifdef ENABLE_PROFIL_RUN
