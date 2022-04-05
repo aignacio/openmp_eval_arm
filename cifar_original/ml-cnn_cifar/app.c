@@ -581,7 +581,6 @@ int main()
     double time_serial[NUM_RUNS],
            time_pll[NUM_RUNS];
 
-    setup_gpio();
 #ifdef ENABLE_SERIAL_RUN
     for (int i=0;i<NUM_RUNS;i++){
         printf("\n[Serial] RUN:\n");

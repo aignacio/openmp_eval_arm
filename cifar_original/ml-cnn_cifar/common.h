@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <stdbool.h>
 
 // [aignacio] - Macros for profiling code
 #define START_TIME_EVAL(x)  gettimeofday(&x, NULL)
@@ -18,6 +19,19 @@ struct timeval begin, end;
 double Elapsed_Time, Elapsed_Time_Serial, Elapsed_Time_Parallel, Elapsed_Time_profiling;
 int fd;
 struct timeval begin2, end2;
+
+//----------------------------//
+#define GPIO26 	26
+#define HIGH    1
+#define LOW 	0
+#define INPUT   0
+#define OUTPUT  1
+
+int arquive, pin=GPIO26;
+float timeSleep=0.5;
+char buffer[3];
+char path[35];
+//----------------------------//
 
 double get_average_proc(double *val){
     double average = 0;
@@ -61,59 +75,102 @@ float compare_result_float(float *v1, float *v2, int iter, int cols_per_row){
     return score;
 }
 
-void setup_gpio(){
-    fd = open("/sys/class/gpio/export", O_WRONLY);
+bool unexport_gpio(int pin) {
+	arquive = open ("/sys/class/gpio/unexport", O_WRONLY);
+    if (arquive==-1) {
+        printf("Arquivo abriu incorretamente\n");
+        return false;
+    }
+    if(write(arquive, buffer, 3) == -1) {
+        close(arquive);
+        return false;
+    }
+    return true;
+}
 
-    if (fd == -1) {
-        perror("Unable to open /sys/class/gpio/export");
-        exit(1);
+void finalization(int nsignal) {
+	// === Desvinculando o pino == //
+    if(unexport_gpio(pin)){
+	    delay(0.5);
+        printf("\nAplicando um unexport no pino\n");
+	    delay(0.5);
+	    printf("Programa finalizado...\n");
+	    exit(0);
+    }
+}
+
+bool access_gpio(int pin) {
+    snprintf(path, 35, "/sys/class/gpio/gpio%d/direction", pin);
+    if (access(path, 0) == -1) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+
+bool export_gpio(int pin) {
+    arquive = open ("/sys/class/gpio/export", O_WRONLY);
+    if (arquive==-1) {
+        printf("Arquivo abriu incorretamente\n");
+        return false;
+    }
+    snprintf(buffer, 3, "%d", pin);
+    if(write(arquive, buffer, 3) == -1) {
+        close(arquive);
+        return false;
     }
 
-    if (write(fd, "26", 2) != 2) {
-        perror("Error writing to /sys/class/gpio/export");
-        exit(1);
+    close(arquive);
+    return true;
+}
+
+bool direction_gpio(int pin, int direction) {
+    arquive=0;
+    snprintf(path, 35, "/sys/class/gpio/gpio%d/direction", pin);
+    arquive = open (path, O_WRONLY);
+    if (arquive==-1)
+        return false;
+
+    snprintf(buffer, 3, "%d", pin);
+    if (write( arquive, ((direction == INPUT)?"in":"out"), 3 )==-1) {
+        close(arquive);
+        return false;
     }
+    close(arquive);
+	return true;
+}
 
-    close(fd);
-    //Set the pin to be an output by writing "out" to /sys/class/gpio/gpio26/direction
-
-    fd = open("/sys/class/gpio/gpio26/direction", O_WRONLY);
-    if (fd == -1) {
-        perror("Unable to open /sys/class/gpio/gpio26/direction");
-        exit(1);
+bool value_gpio(int pin, int value) {
+	arquive=0;
+    snprintf(path, 35, "/sys/class/gpio/gpio%d/value", pin);
+    arquive = open(path, O_WRONLY);
+    if (arquive == -1) {
+        return false;
     }
-
-    if (write(fd, "out", 3) != 3) {
-        perror("Error writing to /sys/class/gpio/gpio26/direction");
-        exit(1);
+    if (write (arquive, ((value == HIGH)?"1":"0"), 1) == -1) {
+        close(arquive);
+        return false;
     }
+	close(arquive);
+	return true;
+}
 
-    close(fd);
+void delay(float time){
+	struct timespec t;
+	int seg;
+	seg = time;
+	t.tv_sec = seg;
+	t.tv_nsec = (time-seg)*1e9;
+	nanosleep(&t, NULL);
 }
 
 void start_measure(){
-    fd = open("/sys/class/gpio/gpio26/value", O_WRONLY);
-    if (fd == -1) {
-        perror("Unable to open /sys/class/gpio/gpio26/value");
-        exit(1);
-    }
-
-    if (write(fd, "0", 1) != 1) {
-        perror("Error writing to /sys/class/gpio/gpio26/value");
-        exit(1);
-    }
+    access_gpio(26);
+    direction_gpio(26, OUTPUT);
+    value_gpio(26, LOW);
 }
 
 void stop_measure(){
-    fd = open("/sys/class/gpio/gpio26/value", O_WRONLY);
-    if (fd == -1) {
-        perror("Unable to open /sys/class/gpio/gpio26/value");
-        exit(1);
-    }
-
-    if (write(fd, "1", 1) != 1) {
-        perror("Error writing to /sys/class/gpio/gpio26/value");
-        exit(1);
-    }
+    value_gpio(26, HIGH);
 }
-
