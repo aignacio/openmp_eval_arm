@@ -22,7 +22,7 @@ void setup(void)
   Serial.println("Power measure with  INA219 - MIC90");
   Serial.println("Configuring IRQ pin");
   pinMode(interruptPin, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(interruptPin), irq_f, FALLING);
+  attachInterrupt(digitalPinToInterrupt(interruptPin), irq_f, CHANGE);
 }
 
 void irq_f(void){
@@ -35,7 +35,7 @@ void start_meas(void){
   float current_mA = 0;
   float loadvoltage = 0;
   float power_mW = 0;
-  float iter = 1;
+  float iter = 1;  
 
   shuntvoltage = ina219.getShuntVoltage_mV();
   busvoltage = ina219.getBusVoltage_V();
@@ -53,7 +53,7 @@ void start_meas(void){
   while(start_measuring == HIGH){
     power_mW += ina219.getPower_mW();
     iter++;
-    delay(100);
+    delay(10);
   }
   Serial.println("Finished");
 
