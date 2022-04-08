@@ -108,14 +108,22 @@ arm_convolve_HWC_q7_RGB_omp(const q7_t * Im_in,
         return ARM_MATH_SIZE_MISMATCH;
     }
     // This part implements the im2col function
+
+
+
+    /*#pragma omp parallel for shared(pBuffer) schedule(static)*/
+    /*#pragma omp simd simdlen(8)*/
+    #pragma omp parallel for shared(pBuffer, pOut) firstprivate(dim_im_out, stride, padding, dim_kernel, dim_im_in)
     for (i_out_y = 0; i_out_y < dim_im_out; i_out_y++)
     {
+        #pragma omp critical
         for (i_out_x = 0; i_out_x < dim_im_out; i_out_x++)
         {
             for (i_ker_y = i_out_y * stride - padding; i_ker_y < i_out_y * stride - padding + dim_kernel; i_ker_y++)
             {
                 for (i_ker_x = i_out_x * stride - padding; i_ker_x < i_out_x * stride - padding + dim_kernel; i_ker_x++)
                 {
+                    /*printf("_%d",omp_get_thread_num());*/
                     if (i_ker_y < 0 || i_ker_y >= dim_im_in || i_ker_x < 0 || i_ker_x >= dim_im_in)
                     {
                         /* Equivalent to arm_fill_q15(0, pBuffer, ch_im_in) with assumption: ch_im_in = 3 */
@@ -164,16 +172,19 @@ arm_convolve_HWC_q7_RGB_omp(const q7_t * Im_in,
                          *
                          *  version 2, no weight shuffling required
                          */
+
                         *pBuffer++ = bottom.half_words[0];
+
                         *__SIMD32(pBuffer) = __PKHTB(top.word, bottom.word, 0);
 #endif
+
                         pBuffer += 2;
                     }
                 }
             }
-
             if (pBuffer == bufferA + 2 * 3 * dim_kernel * dim_kernel)
             {
+
                 pOut =
                     arm_nn_mat_mult_kernel_q7_q15(wt, bufferA,
                                                   ch_im_out,
@@ -224,6 +235,7 @@ arm_convolve_HWC_q7_RGB_omp(const q7_t * Im_in,
             *pOut++ = (q7_t) __SSAT((sum >> out_shift), 8);
         }
     }
+
 #else
     /* Run the following code as reference implementation for Cortex-M0 and Cortex-M3 */
 
@@ -237,8 +249,9 @@ arm_convolve_HWC_q7_RGB_omp(const q7_t * Im_in,
         return ARM_MATH_SIZE_MISMATCH;
     }
 
-
-    #pragma omp parallel for collapse(3) shared(Im_out) private(conv_out) schedule(static) firstprivate(Im_in, stride, padding, dim_im_out, ch_im_out, dim_kernel, ch_im_in, bias, bias_shift, out_shift)
+    //#pragma omp parallel for collapse(3) shared(Im_out) private(conv_out) schedule(static) firstprivate(Im_in, stride, padding, dim_im_out, ch_im_out, dim_kernel, ch_im_in, bias, bias_shift, out_shift)
+    //
+    //#pragma omp for simd collapse(3) simdlen(8)
     for (i = 0; i < ch_im_out; i++)
     {
         for (j = 0; j < dim_im_out; j++)
@@ -265,7 +278,7 @@ arm_convolve_HWC_q7_RGB_omp(const q7_t * Im_in,
                         }
                     }
                 }
-                #pragma omp critical
+                //#pragma omp critical
                 Im_out[i + (j * dim_im_out + k) * ch_im_out] = (q7_t) __SSAT((conv_out >> out_shift), 8);
             }
         }
