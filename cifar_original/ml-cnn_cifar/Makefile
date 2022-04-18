@@ -2,7 +2,7 @@
 # Parameters to configure the tweaks
 #########################################
 THREADS						?= 4  # Num of threads dispatched by OMP
-NUM_RUNS					?= 1  # Num of runs to compute average of proc
+NUM_RUNS					?= 10  # Num of runs to compute average of proc
 ENABLE_SERIAL_RUN ?= 1
 ENABLE_PARAL_RUN	?= 1
 ENABLE_PROFIL_RUN	?= 0
@@ -47,6 +47,7 @@ CFLAGS += -O3
 CFLAGS += -w -g -fopenmp
 CFLAGS +=	-DTHREADS=$(THREADS)
 CFLAGS +=	-DNUM_RUNS=$(NUM_RUNS)
+CFLAGS +=	-D_ARMFEATURE_DSP=0
 ifeq ($(ENABLE_SERIAL_RUN),1)
 CFLAGS +=	-DENABLE_SERIAL_RUN=1
 endif

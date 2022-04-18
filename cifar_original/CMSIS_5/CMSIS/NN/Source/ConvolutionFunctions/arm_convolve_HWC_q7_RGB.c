@@ -91,6 +91,7 @@ arm_convolve_HWC_q7_RGB_omp(const q7_t * Im_in,
                         q7_t * Im_out, const uint16_t dim_im_out, q15_t * bufferA, q7_t * bufferB)
 {
     (void)bufferB;
+#undef ARM_MATH_DSP
 #if defined (ARM_MATH_DSP)
     /* Run the following code for Cortex-M4 and Cortex-M7 */
     int16_t   i_out_y, i_out_x, i_ker_y, i_ker_x;
@@ -207,6 +208,7 @@ arm_convolve_HWC_q7_RGB_omp(const q7_t * Im_in,
 #else
     /* Run the following code as reference implementation for Cortex-M0 and Cortex-M3 */
 
+    /*printf("ARM ENTROU AQUI");*/
     int  i, j, k, l, m, n;
     int       conv_out;
     int in_row, in_col;
@@ -220,6 +222,9 @@ arm_convolve_HWC_q7_RGB_omp(const q7_t * Im_in,
     //#pragma omp parallel for collapse(3) shared(Im_out) private(conv_out) schedule(static) firstprivate(Im_in, stride, padding, dim_im_out, ch_im_out, dim_kernel, ch_im_in, bias, bias_shift, out_shift)
     //
     //#pragma omp for simd collapse(3) simdlen(8)
+    #pragma omp parallel for collapse(3) shared(Im_out) private(conv_out) \
+                             schedule(static) firstprivate(Im_in, stride, padding,\
+                             dim_im_out, ch_im_out, dim_kernel, ch_im_in, bias, bias_shift, out_shift)
     for (i = 0; i < ch_im_out; i++)
     {
         for (j = 0; j < dim_im_out; j++)
@@ -231,6 +236,7 @@ arm_convolve_HWC_q7_RGB_omp(const q7_t * Im_in,
                 {
                     for (n = 0; n < dim_kernel; n++)
                     {
+                        //printf("_%d",omp_get_thread_num());
                         /* if-for implementation */
                         in_row = stride * j + m - padding;
                         in_col = stride * k + n - padding;

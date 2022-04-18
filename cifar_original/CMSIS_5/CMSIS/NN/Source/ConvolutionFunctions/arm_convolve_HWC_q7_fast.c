@@ -105,7 +105,6 @@ arm_convolve_HWC_q7_fast_omp(const q7_t * Im_in,
                          q15_t * bufferA,
                          q7_t * bufferB)
 {
-    (void)bufferB;
     /* Run the following code as reference implementation for Cortex-M0 and Cortex-M3 */
 
     int  i, j, k, l, m, n;
@@ -119,7 +118,10 @@ arm_convolve_HWC_q7_fast_omp(const q7_t * Im_in,
     }
 
     {
-        #pragma omp parallel for  shared(Im_out) private(conv_out) schedule(static) firstprivate(Im_in, stride, padding, dim_im_out, ch_im_out, dim_kernel, ch_im_in, bias, bias_shift, out_shift) private(in_row, in_col)
+        #pragma omp parallel for  collapse(3) shared(Im_out) private(conv_out)\
+                                  schedule(static) firstprivate(Im_in, stride, padding,\
+                                  dim_im_out, ch_im_out, dim_kernel, ch_im_in, bias,\
+                                  bias_shift, out_shift) private(in_row, in_col)
         for (i = 0; i < ch_im_out; i++)
         {
             for (j = 0; j < dim_im_out; j++)
@@ -138,7 +140,6 @@ arm_convolve_HWC_q7_fast_omp(const q7_t * Im_in,
                             {
                                 for (l = 0; l < ch_im_in; l++)
                                 {
-
                                     conv_out +=
                                         Im_in[(in_row * dim_im_in + in_col) * ch_im_in +
                                               l] * wt[i * ch_im_in * dim_kernel * dim_kernel + (m * dim_kernel +
@@ -147,16 +148,13 @@ arm_convolve_HWC_q7_fast_omp(const q7_t * Im_in,
                             }
                         }
                     }
-                    #pragma omp critical
+                    //#pragma omp critical
                     Im_out[i + (j * dim_im_out + k) * ch_im_out] = (q7_t) __SSAT((conv_out >> out_shift), 8);
                 }
             }
         }
     }
-    /* Return to application */
-    return ARM_MATH_SUCCESS;
 }
-
 
 arm_status
 arm_convolve_HWC_q7_fast(const q7_t * Im_in,
