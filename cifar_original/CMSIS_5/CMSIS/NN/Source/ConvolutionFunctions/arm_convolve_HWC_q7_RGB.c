@@ -91,6 +91,8 @@ arm_convolve_HWC_q7_RGB_omp(const q7_t * Im_in,
                         q7_t * Im_out, const uint16_t dim_im_out, q15_t * bufferA, q7_t * bufferB)
 {
     (void)bufferB;
+// [aignacio] We undef this Macro to force the ARM processor to use the thumb2 instructions
+// instead of the SIMD once OMP+SIMD doesn't work well on this platform
 #undef ARM_MATH_DSP
 #if defined (ARM_MATH_DSP)
     /* Run the following code for Cortex-M4 and Cortex-M7 */
@@ -112,7 +114,7 @@ arm_convolve_HWC_q7_RGB_omp(const q7_t * Im_in,
 
 
 
-    #pragma omp parallel for collapse(2) shared(pOut) firstprivate(pBuffer, dim_im_out, stride, padding, dim_kernel, dim_im_in, out_shift, bias, ch_im_out)
+    /*#pragma omp parallel for collapse(2) shared(pOut) firstprivate(pBuffer, dim_im_out, stride, padding, dim_kernel, dim_im_in, out_shift, bias, ch_im_out)*/
     for (i_out_y = 0; i_out_y < dim_im_out; i_out_y++)
     {
         for (i_out_x = 0; i_out_x < dim_im_out; i_out_x++)
@@ -151,7 +153,7 @@ arm_convolve_HWC_q7_RGB_omp(const q7_t * Im_in,
                     }
                 }
             }
-            #pragma omp critical
+            /*#pragma omp critical*/
             if (pBuffer == bufferA + 2 * 3 * dim_kernel * dim_kernel)
             {
                 pOut =
@@ -252,7 +254,7 @@ arm_convolve_HWC_q7_RGB_omp(const q7_t * Im_in,
                         }
                     }
                 }
-                //#pragma omp critical
+                #pragma omp critical
                 Im_out[i + (j * dim_im_out + k) * ch_im_out] = (q7_t) __SSAT((conv_out >> out_shift), 8);
             }
         }

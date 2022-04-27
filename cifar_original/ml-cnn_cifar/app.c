@@ -92,7 +92,7 @@
 #include "arm_nnexamples_cifar10_parameter.h"
 #include "arm_nnexamples_cifar10_weights.h"
 
-//[aignacio] Added for profiling the code
+//[aignacio] Added for profiling the code and to enable the auxiliar functions
 #include "common.h"
 #include "arm_nnfunctions.h"
 #include "arm_nnexamples_cifar10_inputs.h"
@@ -581,6 +581,12 @@ int main()
     double time_serial[NUM_RUNS],
            time_pll[NUM_RUNS];
 
+    // These Macros down below can be enabled
+    // or disabled through the makefile. Depen
+    // ding the test, it is interesting to either
+    // comment all Macros and uncomment the specific
+    // one that's required
+
 #ifdef ENABLE_SERIAL_RUN
     for (int i=0;i<NUM_RUNS;i++){
         printf("\n[Serial] RUN:\n");
@@ -593,7 +599,10 @@ int main()
 #endif
 
 #ifdef ENABLE_PARAL_RUN
-    start_measure();
+    /* We have created two new functions that will use the Open MP pragmas as followed below: *//
+    /*For the first layer 1 - arm_convolve_HWC_q7_RGB_omp*/
+    /*For layers CONV2/CONV3 - arm_convolve_HWC_q7_fast_omp*/
+    start_measure(); // Triggers the arduino to start measuring power
     for (int i=0;i<NUM_RUNS;i++){
         printf("\n[Parallel] RUN:\n");
         START_TIME_EVAL(begin);
@@ -602,7 +611,7 @@ int main()
         Elapsed_Time_Parallel = Elapsed_Time;
         time_pll[i] = Elapsed_Time_Parallel;
     }
-    stop_measure();
+    stop_measure(); // Trigger the arduino to stop measuring the power
 #endif
 
 #ifdef ENABLE_PROFIL_RUN
@@ -615,7 +624,10 @@ int main()
 
     /************************************************************************
      *
-     *  Evaluating processing time and scoreboard
+     *  Evaluating processing serial vs paralle time and scoreboard
+     *  -> This way we check if the OMP pragmas affected or not the correct
+     *  behavior of the NN. For the comparison to make sense, it's necessary to
+     *  enable the two MACROS in the MAKEFILE, the ENABLE_PARAL_RUN/SERIAL_RUN
      *
      ************************************************************************/
     float score = 0.0;

@@ -1,3 +1,5 @@
+# OpenMP ARM Evaluation & Power analysis
+
 ```bash
 make -C generic_alg all
 #or 

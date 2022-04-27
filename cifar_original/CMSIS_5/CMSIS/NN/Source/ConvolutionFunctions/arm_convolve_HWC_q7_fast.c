@@ -148,7 +148,7 @@ arm_convolve_HWC_q7_fast_omp(const q7_t * Im_in,
                             }
                         }
                     }
-                    //#pragma omp critical
+                    #pragma omp critical
                     Im_out[i + (j * dim_im_out + k) * ch_im_out] = (q7_t) __SSAT((conv_out >> out_shift), 8);
                 }
             }
