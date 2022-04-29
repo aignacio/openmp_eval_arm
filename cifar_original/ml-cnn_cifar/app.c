@@ -599,7 +599,7 @@ int main()
 #endif
 
 #ifdef ENABLE_PARAL_RUN
-    /* We have created two new functions that will use the Open MP pragmas as followed below: *//
+    /* We have created two new functions that will use the Open MP pragmas as followed below: */
     /*For the first layer 1 - arm_convolve_HWC_q7_RGB_omp*/
     /*For layers CONV2/CONV3 - arm_convolve_HWC_q7_fast_omp*/
     start_measure(); // Triggers the arduino to start measuring power
